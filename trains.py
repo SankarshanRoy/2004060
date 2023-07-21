@@ -1,4 +1,6 @@
 import requests
+from flask import Flask, jsonify
+from datetime import datetime, timedelta
 
 auth_api_url = "http://20.244.56.144/train/auth"
 train_api_url = "http://20.244.56.144/train/trains"
@@ -12,6 +14,8 @@ data = {
     "clientSecret": "ranxGMNCcCdlEBYq"
 }
 
+app = Flask(__name__)
+
 def get_train_details():
     try:
         auth_response = requests.post(auth_api_url, json=data)
@@ -23,8 +27,8 @@ def get_train_details():
             # Access token request failed, print the error response
             print("Access Token Request Failed")
             print("Error Response:")
-            print(auth_response.content)  
-            exit()  
+            print(auth_response.content)
+            return None
 
         headers = {
             "Authorization": f"Bearer {access_token}"
@@ -36,12 +40,13 @@ def get_train_details():
             # Train details fetched successfully
             train_data = train_response.json()
 
+            # Filter out trains with departure time more than 30 minutes and consider delay
             filtered_trains = []
             for train in train_data:
                 departure_time = train.get("departureTime")
                 delayed_by = train.get("delayedBy")
 
-                if departure_time["Minutes"] <= 30 and delayed_by <= 30: # 
+                if departure_time["Minutes"] <= 30 and delayed_by <= 30:
                     filtered_trains.append(train)
 
             # Sort filtered_trains first in ascending order based on 'price' (AC class)
@@ -53,33 +58,31 @@ def get_train_details():
             # Sort the same list in descending order based on departure time
             filtered_trains = sorted(filtered_trains, key=lambda x: x['departureTime']['Hours'], reverse=True)
 
-            print("Train Details:")
-            for train in filtered_trains:
-                train_name = train.get("trainName")
-                train_number = train.get("trainNumber")
-                departure_time = train.get("departureTime")
-                seats_available = train.get("seatsAvailable")
-                prices = train.get("price")
-                delayed_by = train.get("delayedBy")
-
-                print(f"Train Name: {train_name}")
-                print(f"Train Number: {train_number}")
-                print(f"Departure Time: {departure_time['Hours']}:{departure_time['Minutes']}")
-                print(f"Seats Available - Sleeper: {seats_available['sleeper']}, AC: {seats_available['AC']}")
-                print(f"Prices - Sleeper: {prices['sleeper']}, AC: {prices['AC']}")
-                print(f"Delayed By: {delayed_by} minutes")
-                print()
+            return filtered_trains
 
         else:
+            # Train details request failed, print the error response
             print("Train Details Request Failed")
             print("Error Response:")
-            print(train_response.content)  
+            print(train_response.content)
+            return None
 
     except requests.exceptions.RequestException as e:
         # Handle request exceptions (e.g., connection error, timeout)
         print("Request Error:", e)
+        return None
     except Exception as e:
         print("Error:", e)
+        return None
 
-get_train_details()
+@app.route('/trains', methods=['GET'])         
+def get_trains():
+    train_details = get_train_details()
+    if train_details:
+        return jsonify(train_details)
+    else:
+        return jsonify({"message": "Error fetching train details"}), 500
+
+if __name__ == '__main__':
+    app.run(debug=True, port=3000)
 
