@@ -35,8 +35,26 @@ def get_train_details():
         if train_response.status_code == 200:
             # Train details fetched successfully
             train_data = train_response.json()
-            print("Train Details:")
+
+            filtered_trains = []
             for train in train_data:
+                departure_time = train.get("departureTime")
+                delayed_by = train.get("delayedBy")
+
+                if departure_time["Minutes"] <= 30 and delayed_by <= 30: # 
+                    filtered_trains.append(train)
+
+            # Sort filtered_trains first in ascending order based on 'price' (AC class)
+            filtered_trains = sorted(filtered_trains, key=lambda x: x['price']['AC'])
+
+            # Sort the same list in descending order based on available seats for AC class
+            filtered_trains = sorted(filtered_trains, key=lambda x: x['seatsAvailable']['AC'], reverse=True)
+
+            # Sort the same list in descending order based on departure time
+            filtered_trains = sorted(filtered_trains, key=lambda x: x['departureTime']['Hours'], reverse=True)
+
+            print("Train Details:")
+            for train in filtered_trains:
                 train_name = train.get("trainName")
                 train_number = train.get("trainNumber")
                 departure_time = train.get("departureTime")
@@ -53,7 +71,6 @@ def get_train_details():
                 print()
 
         else:
-            # Train details request failed, print the error response
             print("Train Details Request Failed")
             print("Error Response:")
             print(train_response.content)  
@@ -63,6 +80,6 @@ def get_train_details():
         print("Request Error:", e)
     except Exception as e:
         print("Error:", e)
-        
+
 get_train_details()
 
